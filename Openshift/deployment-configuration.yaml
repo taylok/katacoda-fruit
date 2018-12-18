@@ -1,0 +1,123 @@
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  annotations:
+    fabric8.io/iconUrl: img/icons/spring-boot.svg
+    fabric8.io/metrics-path: >-
+      dashboard/file/kubernetes-pods.json/?var-project=fruits&var-version=1.0.0-SNAPSHOT
+  generation: 2
+  labels:
+    app: fruits
+    group: com.example
+    provider: fabric8
+    version: 1.0.0-SNAPSHOT
+  name: fruits
+  namespace: dev-fruit
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    app: fruits
+    group: com.example
+    provider: fabric8
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 3600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      annotations:
+        fabric8.io/iconUrl: img/icons/spring-boot.svg
+        fabric8.io/metrics-path: >-
+          dashboard/file/kubernetes-pods.json/?var-project=fruits&var-version=1.0.0-SNAPSHOT
+      creationTimestamp: null
+      labels:
+        app: fruits
+        group: com.example
+        provider: fabric8
+        version: 1.0.0-SNAPSHOT
+    spec:
+      containers:
+        - env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: user
+                  name: my-database-secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: my-database-secret
+            - name: JAVA_OPTIONS
+              value: '-Dspring.profiles.active=openshift'
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          image: >-
+            docker-registry.default.svc:5000/dev-fruit/fruits@sha256:6239410d75a89db6329fe38ef8cc798fbb4172666340aaf3c02aae9c0f3b58c2
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 180
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: spring-boot
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 9779
+              name: prometheus
+              protocol: TCP
+            - containerPort: 8778
+              name: jolokia
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          securityContext:
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+  test: false
+  triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+          - spring-boot
+        from:
+          kind: ImageStreamTag
+          name: 'fruits:latest'
+          namespace: dev-fruit
+        lastTriggeredImage: >-
+          docker-registry.default.svc:5000/dev-fruit/fruits@sha256:6239410d75a89db6329fe38ef8cc798fbb4172666340aaf3c02aae9c0f3b58c2
+      type: ImageChange
+
